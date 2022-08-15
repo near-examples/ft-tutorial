@@ -28,14 +28,6 @@ impl Contract {
         }
     }
 
-    pub fn internal_storage_balance_of(&self, account_id: &AccountId) -> Option<StorageBalance> {
-        if self.accounts.contains_key(account_id) {
-            Some(StorageBalance { total: self.storage_balance_bounds().min, available: 0.into() })
-        } else {
-            None
-        }
-    }
-
     pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
         match self.accounts.get(account_id) {
             Some(balance) => balance,

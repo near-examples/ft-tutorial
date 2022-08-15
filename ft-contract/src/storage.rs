@@ -1,10 +1,16 @@
 use near_sdk::json_types::U128;
-use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise};
+use near_sdk::{env, log, AccountId, Balance, Promise};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
 use crate::*;
 
+// The structure that will be returned for the methods:
+// * `storage_deposit`
+// * `storage_withdraw`
+// * `storage_balance_of`
+// The `total` and `available` values are string representations of unsigned
+// 128-bit integers showing the balance of a specific account in yoctoⓃ.
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalance {
@@ -12,6 +18,18 @@ pub struct StorageBalance {
     pub available: U128,
 }
 
+// The below structure will be returned for the method `storage_balance_bounds`.
+// Both `min` and `max` are string representations of unsigned 128-bit integers.
+//
+// `min` is the amount of tokens required to start using this contract at all
+// (eg to register with the contract). If a new contract user attaches `min`
+// NEAR to a `storage_deposit` call, subsequent calls to `storage_balance_of`
+// for this user must show their `total` equal to `min` and `available=0` .
+//
+// A contract may implement `max` equal to `min` if it only charges for initial
+// registration, and does not adjust per-user storage over time. A contract
+// which implements `max` must refund deposits that would increase a user's
+// storage balance beyond this amount.
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalanceBounds {
@@ -43,44 +61,6 @@ pub trait StorageManagement {
         registration_only: Option<bool>,
     ) -> StorageBalance;
 
-    // Withdraw specified amount of available Ⓝ for predecessor account.
-    //
-    // This method is safe to call. It MUST NOT remove data.
-    //
-    // `amount` is sent as a string representing an unsigned 128-bit integer. If
-    // omitted, contract MUST refund full `available` balance. If `amount` exceeds
-    // predecessor account's available balance, contract MUST panic.
-    //
-    // If predecessor account not registered, contract MUST panic.
-    //
-    // MUST require exactly 1 yoctoNEAR attached balance to prevent restricted
-    // function-call access-key call (UX wallet security)
-    //
-    // Returns the StorageBalance structure showing updated balances.
-    fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance;
-
-    // Unregisters the predecessor account and returns the storage NEAR deposit.
-    //
-    // If the predecessor account is not registered, the function MUST return
-    // `false` without panic.
-    //
-    // If `force=true` the function SHOULD ignore existing account data, such as
-    // non-zero balances on an FT contract (that is, it should burn such balances),
-    // and close the account. Contract MAY panic if it doesn't support forced
-    // unregistration, or if it can't force unregister for the particular situation
-    // (example: too much data to delete at once).
-    //
-    // If `force=false` or `force` is omitted, the contract MUST panic if caller
-    // has existing account data, such as a positive registered balance (eg token
-    // holdings).
-    //
-    // MUST require exactly 1 yoctoNEAR attached balance to prevent restricted
-    // function-call access-key call (UX wallet security)
-    //
-    // Returns `true` iff the account was successfully unregistered.
-    // Returns `false` iff account was not registered before.
-    fn storage_unregister(&mut self, force: Option<bool>) -> bool;
-
     /****************/
     /* VIEW METHODS */
     /****************/
@@ -104,61 +84,44 @@ impl StorageManagement for Contract {
         account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
+        // Get the amount of $NEAR to deposit
         let amount: Balance = env::attached_deposit();
+        // If an account was specified, use that. Otherwise, use the predecessor account.
         let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
+        
+        // If the account is already registered, refund the deposit.
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(amount);
-            }
+            } 
+        // Register the account and refund any excess $NEAR
         } else {
+            // Get the minimum required storage and ensure the deposit is at least that amount
             let min_balance = self.storage_balance_bounds().min.0;
             if amount < min_balance {
                 env::panic_str("The attached deposit is less than the minimum storage balance");
             }
 
+            // Register the account
             self.internal_register_account(&account_id);
+            // Perform a refund
             let refund = amount - min_balance;
             if refund > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
             }
         }
-        self.internal_storage_balance_of(&account_id).unwrap()
-    }
 
-    /// While storage_withdraw normally allows the caller to retrieve `available` balance, the basic
-    /// Fungible Token implementation sets storage_balance_bounds.min == storage_balance_bounds.max,
-    /// which means available balance will always be 0. So this implementation:
-    /// * panics if `amount > 0`
-    /// * never transfers Ⓝ to caller
-    /// * returns a `storage_balance` struct if `amount` is 0
-    #[payable]
-    fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
-        assert_one_yocto();
-        let predecessor_account_id = env::predecessor_account_id();
-        if let Some(storage_balance) = self.internal_storage_balance_of(&predecessor_account_id) {
-            match amount {
-                Some(amount) if amount.0 > 0 => {
-                    env::panic_str("The amount is greater than the available storage balance");
-                }
-                _ => storage_balance,
-            }
-        } else {
-            env::panic_str(
-                format!("The account {} is not registered", &predecessor_account_id).as_str(),
-            );
-        }
-    }
-
-    #[payable]
-    fn storage_unregister(&mut self, force: Option<bool>) -> bool {
-        assert_one_yocto();
-        self.internal_storage_unregister(force).is_some()
+        // Return the storage balance of the account
+        StorageBalance { total: self.storage_balance_bounds().min, available: 0.into() }
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
+        // Calculate the required storage balance by taking the bytes for the longest account ID and multiplying by the current byte cost
         let required_storage_balance =
             Balance::from(self.bytes_for_longest_account_id) * env::storage_byte_cost();
+        
+        // Storage balance bounds will have min == max == required_storage_balance
         StorageBalanceBounds {
             min: required_storage_balance.into(),
             max: Some(required_storage_balance.into()),
@@ -166,6 +129,11 @@ impl StorageManagement for Contract {
     }
 
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
-        self.internal_storage_balance_of(&account_id)
+        // Get the storage balance of the account. Available will always be 0 since you can't overpay for storage.
+        if self.accounts.contains_key(&account_id) {
+            Some(StorageBalance { total: self.storage_balance_bounds().min, available: 0.into() })
+        } else {
+            None
+        }
     }
 }
