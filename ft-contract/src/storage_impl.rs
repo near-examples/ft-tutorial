@@ -67,6 +67,7 @@ pub trait StorageManagement {
 impl Contract {
     /// Internal method that returns the Account ID and the balance in case the account was
     /// unregistered.
+    #[payable]
     pub fn internal_storage_unregister(
         &mut self,
         force: Option<bool>,
@@ -104,6 +105,7 @@ impl Contract {
 impl StorageManagement for Contract {
     // `registration_only` doesn't affect the implementation for vanilla fungible token.
     #[allow(unused_variables)]
+    #[payable]
     fn storage_deposit(
         &mut self,
         account_id: Option<AccountId>,
@@ -137,6 +139,7 @@ impl StorageManagement for Contract {
     /// * panics if `amount > 0`
     /// * never transfers Ⓝ to caller
     /// * returns a `storage_balance` struct if `amount` is 0
+    #[payable]
     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
         assert_one_yocto();
         let predecessor_account_id = env::predecessor_account_id();

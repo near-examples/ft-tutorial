@@ -67,6 +67,7 @@ pub trait FungibleTokenCore {
 
 #[near_bindgen]
 impl FungibleTokenCore for Contract {
+    #[payable]
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
@@ -74,6 +75,7 @@ impl FungibleTokenCore for Contract {
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
     }
 
+    #[payable]
     fn ft_transfer_call(
         &mut self,
         receiver_id: AccountId,

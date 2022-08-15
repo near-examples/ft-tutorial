@@ -69,7 +69,7 @@ impl Contract {
     ) -> Self {
         //create a variable of type Self with all the fields initialized. 
         let mut this = Self {
-            total_supply: total_supply.0,
+            total_supply: 0,
             account_storage_usage: 0,
             accounts: LookupMap::new(StorageKey::Accounts.try_to_vec().unwrap()),
             metadata: LazyOption::new(
