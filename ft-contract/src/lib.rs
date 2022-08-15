@@ -3,7 +3,7 @@ use near_sdk::collections::{LazyOption, LookupMap};
 use near_sdk::json_types::U128;
 use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue, StorageUsage, CryptoHash, BorshStorageKey};
 
-pub mod core;
+pub mod ft_core;
 pub mod events;
 pub mod metadata;
 pub mod storage_impl;
@@ -68,7 +68,7 @@ impl Contract {
         metadata: FungibleTokenMetadata,
     ) -> Self {
         //create a variable of type Self with all the fields initialized. 
-        let this = Self {
+        let mut this = Self {
             total_supply: total_supply.0,
             account_storage_usage: 0,
             accounts: LookupMap::new(StorageKey::Accounts.try_to_vec().unwrap()),
