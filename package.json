@@ -5,6 +5,8 @@
     "author": "Ben Kurrek",
     "license": "ISC",
     "scripts": {
-        "build": "cd ft-contract && ./build.sh && cd .."
+        "build": "cd ft-contract && ./build.sh && cd ..",
+        "build:all": "yarn build && yarn build:skeleton",
+        "build:skeleton": "cd skeleton && ./build.sh && cd .."
     }
 }
