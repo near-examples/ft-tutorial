@@ -26,9 +26,6 @@ pub trait FungibleTokenMetadataProvider {
 #[near_bindgen]
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
-        /*
-            FILL THIS IN
-        */
-        todo!(); //remove once code is filled in.
+        self.metadata.get().unwrap()
     }
 }

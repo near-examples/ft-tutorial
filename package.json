@@ -6,7 +6,8 @@
     "license": "ISC",
     "scripts": {
         "build": "cd ft-contract && ./build.sh && cd ..",
-        "build:all": "yarn build && yarn build:skeleton",
-        "build:skeleton": "cd skeleton && ./build.sh && cd .."
+        "build:all": "yarn build && yarn build:skeleton && yarn build:initial-supply",
+        "build:skeleton": "cd skeleton && ./build.sh && cd ..",
+        "build:initial-supply": "cd initial-supply && ./build.sh && cd .."
     }
 }
