@@ -1,7 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{ext_contract, near_bindgen};
+use near_sdk::{near_bindgen};
 
 use crate::*;
 
@@ -17,7 +17,6 @@ pub struct FungibleTokenMetadata {
     pub decimals: u8, // used in frontends to show the proper significant digits of a token. This concept is explained well in this OpenZeppelin post. https://docs.openzeppelin.com/contracts/3.x/erc20#a-note-on-decimals
 }
 
-#[ext_contract(ext_ft_metadata)]
 pub trait FungibleTokenMetadataProvider {
     // View call for returning the contract metadata
     fn ft_metadata(&self) -> FungibleTokenMetadata;
