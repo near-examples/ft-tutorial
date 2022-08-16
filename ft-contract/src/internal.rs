@@ -1,34 +1,10 @@
-use near_sdk::{require, Promise};
+use near_sdk::{require};
 
 use crate::*;
 
 impl Contract {
-    /// Internal method that returns the Account ID and the balance in case the account was
-    /// unregistered.
-    pub fn internal_storage_unregister(
-        &mut self,
-        force: Option<bool>,
-    ) -> Option<(AccountId, Balance)> {
-        let account_id = env::predecessor_account_id();
-        let force = force.unwrap_or(false);
-        if let Some(balance) = self.accounts.get(&account_id) {
-            if balance == 0 || force {
-                self.accounts.remove(&account_id);
-                self.total_supply -= balance;
-                Promise::new(account_id.clone()).transfer(self.storage_balance_bounds().min.0 + 1);
-                Some((account_id, balance))
-            } else {
-                env::panic_str(
-                    "Can't unregister the account with the positive balance without force",
-                )
-            }
-        } else {
-            log!("The account {} is not registered", &account_id);
-            None
-        }
-    }
-
-    pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
+    /// Internal method for force getting the balance of an account. If the account doesn't have a balance, panic with a custom message.
+    pub(crate) fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
         match self.accounts.get(account_id) {
             Some(balance) => balance,
             None => {
@@ -37,10 +13,17 @@ impl Contract {
         }
     }
 
-    pub fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
+    /// Internal method for depositing some amount of FTs into an account. 
+    /// This will briefly increase the total supply but is always called in conjunction with `internal_withdraw` which decreases the total supply.
+    /// The result is always a net 0 balance change. (this is only ever called on its own in the initialization function)
+    pub(crate) fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
+        // Get the current balance of the account. If they're not registered, panic.
         let balance = self.internal_unwrap_balance_of(account_id);
+        
+        // Add the amount to the balance and insert the new balance into the accounts map
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
+            // Increment the total supply since we're depositing some FTs
             self.total_supply = self
                 .total_supply
                 .checked_add(amount)
@@ -50,10 +33,17 @@ impl Contract {
         }
     }
 
-    pub fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) {
+    /// Internal method for withdrawing some amount of FTs from an account. 
+    /// This will briefly decrease the total supply but is always called in conjunction with `internal_deposit` which increases the total supply.
+    /// The result is always a net 0 balance change.
+    pub(crate) fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) {
+        // Get the current balance of the account. If they're not registered, panic.
         let balance = self.internal_unwrap_balance_of(account_id);
+        
+        // Decrease the amount from the balance and insert the new balance into the accounts map
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
+            // Decrease the total supply since we're withdrawing FTs
             self.total_supply = self
                 .total_supply
                 .checked_sub(amount)
@@ -63,17 +53,24 @@ impl Contract {
         }
     }
 
-    pub fn internal_transfer(
+    /// Internal method for performing a transfer of FTs from one account to another.
+    pub(crate) fn internal_transfer(
         &mut self,
         sender_id: &AccountId,
         receiver_id: &AccountId,
         amount: Balance,
         memo: Option<String>,
     ) {
+        // Ensure the sender can't transfer to themselves
         require!(sender_id != receiver_id, "Sender and receiver should be different");
+        // Ensure the sender can't transfer 0 tokens
         require!(amount > 0, "The amount should be a positive number");
+        
+        // Withdraw from the sender and deposit into the receiver
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
+        
+        // Emit a Transfer event
         FtTransfer {
             old_owner_id: sender_id,
             new_owner_id: receiver_id,
@@ -83,13 +80,16 @@ impl Contract {
         .emit();
     }
 
-    pub fn internal_register_account(&mut self, account_id: &AccountId) {
+    /// Internal method for registering an account with the contract.
+    pub(crate) fn internal_register_account(&mut self, account_id: &AccountId) {
         if self.accounts.insert(account_id, &0).is_some() {
             env::panic_str("The account is already registered");
         }
     }
 
-    pub fn measure_bytes_for_longest_account_id(&mut self) {
+    /// Internal method for measuring how many bytes it takes to insert the longest possible account ID into our map
+    /// This will insert the account, measure the storage, and remove the account. It is called in the initialization function.
+    pub(crate) fn measure_bytes_for_longest_account_id(&mut self) {
         let initial_storage_usage = env::storage_usage();
         let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
         self.accounts.insert(&tmp_account_id, &0u128);
