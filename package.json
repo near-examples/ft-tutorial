@@ -5,10 +5,6 @@
     "author": "Ben Kurrek",
     "license": "ISC",
     "scripts": {
-        "build": "cd finished-contract && ./build.sh && cd ..",
-        "build:all": "yarn build && yarn build:skeleton && yarn build:define-a-token && yarn build:initial-supply",
-        "build:skeleton": "cd 1.skeleton && ./build.sh && cd ..",
-        "build:define-a-token": "cd 2.define-a-token && ./build.sh && cd ..",
-        "build:initial-supply": "cd 3.initial-supply && ./build.sh && cd .."
+        "build": "cd finished-contract && ./build.sh && cd .."
     }
 }
