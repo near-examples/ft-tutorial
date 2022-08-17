@@ -205,7 +205,7 @@ impl Contract {
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
                 
                 // Refund the sender for the unused amount.
-                self.internal_transfer(&sender_id, &receiver_id, refund_amount, Some("Refund".to_string()));
+                self.internal_transfer(&receiver_id, &sender_id, refund_amount, Some("Refund".to_string()));
                 
                 // Return what was actually used (the amount sent - refund)
                 let used_amount = amount
