@@ -204,30 +204,8 @@ impl Contract {
                 // The amount to refund is the smaller of the unused amount and the receiver's balance as we can only refund up to what the receiver currently has.
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
                 
-                // Remove the refund amount from the receiver's balance.
-                if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
-                    self.accounts.insert(&receiver_id, &new_receiver_balance);
-                } else {
-                    env::panic_str("The receiver account doesn't have enough balance");
-                }
-
-                // Get the sender's current balance
-                let sender_balance = self.accounts.get(sender_id).unwrap();
-                // Add the refund amount to the sender's balance
-                if let Some(new_sender_balance) = sender_balance.checked_add(refund_amount) {
-                    self.accounts.insert(sender_id, &new_sender_balance);
-                } else {
-                    env::panic_str("Sender balance overflow");
-                }
-
-                // Emit a transfer log event
-                FtTransfer {
-                    old_owner_id: &receiver_id,
-                    new_owner_id: sender_id,
-                    amount: &U128(refund_amount),
-                    memo: Some("refund"),
-                }
-                .emit();
+                // Refund the sender for the unused amount.
+                self.internal_transfer(&sender_id, &receiver_id, refund_amount, Some("Refund".to_string()));
                 
                 // Return what was actually used (the amount sent - refund)
                 let used_amount = amount
