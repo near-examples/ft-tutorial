@@ -72,6 +72,8 @@ impl Contract {
         let mut this = Self {
             // Set the total supply
             total_supply: total_supply.0,
+            // Set the bytes for the longest account ID to 0 temporarily until it's calculated later
+            bytes_for_longest_account_id: 0,
             // Storage keys are simply the prefixes used for the collections. This helps avoid data collision
             accounts: LookupMap::new(StorageKey::Accounts.try_to_vec().unwrap()),
             metadata: LazyOption::new(
@@ -80,9 +82,13 @@ impl Contract {
             ),
         };
 
-        // Set the owner's balance to the total supply.
-        this.internal_deposit(&owner_id, total_supply.into());
+        // Measure the bytes for the longest account ID and store it in the contract.
+        this.measure_bytes_for_longest_account_id();
 
+        // Register the owner's account and set their balance to the total supply.
+        this.internal_register_account(&owner_id);
+        this.internal_deposit(&owner_id, total_supply.into());
+        
         // Emit an event showing that the FTs were minted
         FtMint {
             owner_id: &owner_id,
