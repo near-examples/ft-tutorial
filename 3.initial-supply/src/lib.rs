@@ -70,8 +70,8 @@ impl Contract {
     ) -> Self {
         // Create a variable of type Self with all the fields initialized. 
         let mut this = Self {
-            // Set the total supply to 0 initially. This will be populated after.
-            total_supply: 0,
+            // Set the total supply
+            total_supply: total_supply.0,
             // Storage keys are simply the prefixes used for the collections. This helps avoid data collision
             accounts: LookupMap::new(StorageKey::Accounts.try_to_vec().unwrap()),
             metadata: LazyOption::new(

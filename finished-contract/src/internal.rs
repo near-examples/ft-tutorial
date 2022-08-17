@@ -14,8 +14,6 @@ impl Contract {
     }
 
     /// Internal method for depositing some amount of FTs into an account. 
-    /// This will briefly increase the total supply but is always called in conjunction with `internal_withdraw` which decreases the total supply.
-    /// The result is always a net 0 balance change. (this is only ever called on its own in the initialization function)
     pub(crate) fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
         // Get the current balance of the account. If they're not registered, panic.
         let balance = self.internal_unwrap_balance_of(account_id);
@@ -23,19 +21,12 @@ impl Contract {
         // Add the amount to the balance and insert the new balance into the accounts map
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            // Increment the total supply since we're depositing some FTs
-            self.total_supply = self
-                .total_supply
-                .checked_add(amount)
-                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
             env::panic_str("Balance overflow");
         }
     }
 
     /// Internal method for withdrawing some amount of FTs from an account. 
-    /// This will briefly decrease the total supply but is always called in conjunction with `internal_deposit` which increases the total supply.
-    /// The result is always a net 0 balance change.
     pub(crate) fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) {
         // Get the current balance of the account. If they're not registered, panic.
         let balance = self.internal_unwrap_balance_of(account_id);
@@ -43,11 +34,6 @@ impl Contract {
         // Decrease the amount from the balance and insert the new balance into the accounts map
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
-            // Decrease the total supply since we're withdrawing FTs
-            self.total_supply = self
-                .total_supply
-                .checked_sub(amount)
-                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
             env::panic_str("The account doesn't have enough balance");
         }

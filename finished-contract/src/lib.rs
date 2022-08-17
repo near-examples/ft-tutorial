@@ -73,8 +73,9 @@ impl Contract {
     ) -> Self {
         // Create a variable of type Self with all the fields initialized. 
         let mut this = Self {
-            // Set the total supply and bytes for the longest account ID to 0 initially. These will be populated after.
-            total_supply: 0,
+            // Set the total supply
+            total_supply: total_supply.0,
+            // Set the bytes for the longest account ID to 0 temporarily until it's calculated later
             bytes_for_longest_account_id: 0,
             // Storage keys are simply the prefixes used for the collections. This helps avoid data collision
             accounts: LookupMap::new(StorageKey::Accounts.try_to_vec().unwrap()),
