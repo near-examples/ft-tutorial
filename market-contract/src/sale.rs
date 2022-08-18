@@ -1,5 +1,5 @@
 use crate::*;
-use near_sdk::promise_result_as_success;
+use near_sdk::{PromiseResult};
 
 //struct that holds important information about each sale on the market
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -64,12 +64,12 @@ impl Contract {
         self.sales.insert(&contract_and_token_id, &sale);
     }
 
-    //place an offer on a specific sale. The sale will go through as long as your deposit is greater than or equal to the list price
+    /// Place an offer on a specific sale. 
+    /// The sale will go through as long as you have enough FTs in your balance to cover the amount and the amount is greater than or equal to the sale price
     #[payable]
-    pub fn offer(&mut self, nft_contract_id: AccountId, token_id: String) {
-        //get the attached deposit and make sure it's greater than 0
-        let deposit = env::attached_deposit();
-        assert!(deposit > 0, "Attached deposit must be greater than 0");
+    pub fn offer(&mut self, nft_contract_id: AccountId, token_id: String, amount: U128) {
+        //assert that the user has attached exactly 1 yoctoNEAR (for security reasons)
+        assert_one_yocto();
 
         //convert the nft_contract_id from a AccountId to an AccountId
         let contract_id: AccountId = nft_contract_id.into();
@@ -86,14 +86,21 @@ impl Contract {
         //get the u128 price of the token (dot 0 converts from U128 to u128)
         let price = sale.sale_conditions.0;
 
-        //make sure the deposit is greater than the price
-        assert!(deposit >= price, "Attached deposit must be greater than or equal to the current price: {:?}", price);
+        //make sure the amount offering is greater than or equal to the price of the token
+        assert!(amount.0 >= price, "Offer amount must be greater than or eqaul to the price: {:?}", price);
 
-        //process the purchase (which will remove the sale, transfer and get the payout from the nft contract, and then distribute royalties) 
+        // get the amount of FTs the buyer has in their balance
+        let cur_bal = self.ft_deposits.get(&buyer_id).unwrap();
+        //make sure the buyer has enough FTs to cover the amount they're offering
+        assert!(cur_bal >= amount.0, "Not enough FTs in balance to cover offer: {:?}", amount);
+        // if the buyer has enough FTs, subtract the amount from their balance
+        self.ft_deposits.insert(&buyer_id, &(cur_bal - amount.0));
+
+        //process the purchase (which will remove the sale from the market and perform the transfer)
         self.process_purchase(
             contract_id,
             token_id,
-            U128(deposit),
+            amount,
             buyer_id,
         );
     }
@@ -105,14 +112,13 @@ impl Contract {
         &mut self,
         nft_contract_id: AccountId,
         token_id: String,
-        price: U128,
+        amount: U128,
         buyer_id: AccountId,
     ) -> Promise {
         //get the sale object by removing the sale
         let sale = self.internal_remove_sale(nft_contract_id.clone(), token_id.clone());
 
-        //initiate a cross contract call to the nft contract. This will transfer the token to the buyer and return
-        //a payout object used for the market to distribute funds to the appropriate accounts.
+        //initiate a cross contract call to the nft contract. This will transfer the token to the buyer
         ext_nft_contract::ext(nft_contract_id)
             // Attach 1 yoctoNEAR with static GAS equal to the GAS for nft transfer. Also attach an unused GAS weight of 1 by default.
             .with_attached_deposit(1)
@@ -120,93 +126,68 @@ impl Contract {
             .nft_transfer(
                 buyer_id.clone(), //purchaser (person to transfer the NFT to)
                 token_id, //token ID to transfer
-                sale.approval_id, //market contract's approval ID in order to transfer the token on behalf of the owner
-            "payout from market".to_string(), //memo (to include some context)
-            /*
-                the price that the token was purchased for. This will be used in conjunction with the royalty percentages
-                for the token in order to determine how much money should go to which account. 
-            */
-            price,
-            10, //the maximum amount of accounts the market can payout at once (this is limited by GAS)
+                Some(sale.approval_id), //market contract's approval ID in order to transfer the token on behalf of the owner
+                Some("payout from market".to_string()) //memo (to include some context)
             )
         //after the transfer payout has been initiated, we resolve the promise by calling our own resolve_purchase function. 
-        //resolve purchase will take the payout object returned from the nft_transfer_payout and actually pay the accounts
+        //resolve purchase will send the FTs to the owner of the sale if everything went well.
         .then(
             // No attached deposit with static GAS equal to the GAS for resolving the purchase. Also attach an unused GAS weight of 1 by default.
             Self::ext(env::current_account_id())
             .with_static_gas(GAS_FOR_RESOLVE_PURCHASE)
             .resolve_purchase(
+                sale.owner_id, //the seller of the token
                 buyer_id, //the buyer and price are passed in incase something goes wrong and we need to refund the buyer
-                price,
+                amount,
             )
         )
     }
 
     /*
-        private method used to resolve the promise when calling nft_transfer_payout. This will take the payout object and 
-        check to see if it's authentic and there's no problems. If everything is fine, it will pay the accounts. If there's a problem,
-        it will refund the buyer for the price. 
+        private method used to resolve the promise when calling nft_transfer_payout. This will
+        transfer the tokens to the owner of the sale if the transfer was successful. If not, the buyer will be refunded.
+        IMPORTANT - the seller MUST be registered on the FT contract before this function is called or else they will NOT
+        receive their FTs
     */
     #[private]
     pub fn resolve_purchase(
         &mut self,
+        seller_id: AccountId,
         buyer_id: AccountId,
         price: U128,
     ) -> U128 {
-        // checking for payout information returned from the nft_transfer_payout method
-        let payout_option = promise_result_as_success().and_then(|value| {
-            //if we set the payout_option to None, that means something went wrong and we should refund the buyer
-            near_sdk::serde_json::from_slice::<Payout>(&value)
-                //converts the result to an optional value
-                .ok()
-                //returns None if the none. Otherwise executes the following logic
-                .and_then(|payout_object| {
-                    //we'll check if length of the payout object is > 10 or it's empty. In either case, we return None
-                    if payout_object.payout.len() > 10 || payout_object.payout.is_empty() {
-                        env::log_str("Cannot have more than 10 royalties");
-                        None
-                    
-                    //if the payout object is the correct length, we move forward
-                    } else {
-                        //we'll keep track of how much the nft contract wants us to payout. Starting at the full price payed by the buyer
-                        let mut remainder = price.0;
-                        
-                        //loop through the payout and subtract the values from the remainder. 
-                        for &value in payout_object.payout.values() {
-                            //checked sub checks for overflow or any errors and returns None if there are problems
-                            remainder = remainder.checked_sub(value.0)?;
-                        }
-                        //Check to see if the NFT contract sent back a faulty payout that requires us to pay more or too little. 
-                        //The remainder will be 0 if the payout summed to the total price. The remainder will be 1 if the royalties
-                        //we something like 3333 + 3333 + 3333. 
-                        if remainder == 0 || remainder == 1 {
-                            //set the payout_option to be the payout because nothing went wrong
-                            Some(payout_object.payout)
-                        } else {
-                            //if the remainder was anything but 1 or 0, we return None
-                            None
-                        }
-                    }
-                })
-        });
+        let amount: Balance = price.into();
 
-        // if the payout option was some payout, we set this payout variable equal to that some payout
-        let payout = if let Some(payout_option) = payout_option {
-            payout_option
-        //if the payout option was None, we refund the buyer for the price they payed and return
-        } else {
-            Promise::new(buyer_id).transfer(u128::from(price));
-            // leave function and return the price that was refunded
-            return price;
+        // Get the amount to revert the caller's balance with
+        let transfer_amount = match env::promise_result(0) {
+            PromiseResult::NotReady => env::abort(),
+            // If the promise was successful, we'll transfer all the FTs
+            PromiseResult::Successful(_) => {
+                amount
+            }
+            // If the promise wasn't successful, we won't transfer any FTs and instead refund the buyer
+            PromiseResult::Failed => 0,
         };
 
-        // NEAR payouts
-        for (receiver_id, amount) in payout {
-            Promise::new(receiver_id).transfer(amount.0);
+        // If the promise was successful, we'll transfer all the FTs
+        if transfer_amount > 0 {
+            // Perform the cross contract call to transfer the FTs to the seller
+            ext_ft_contract::ext(self.ft_id.clone())
+                // Attach 1 yoctoNEAR with static GAS equal to the GAS for nft transfer. Also attach an unused GAS weight of 1 by default.
+                .with_attached_deposit(1)
+                .ft_transfer(
+                    seller_id, //seller to transfer the FTs to
+                    U128(transfer_amount), //amount to transfer
+                    Some("Sale from marketplace".to_string()), //memo (to include some context)
+                );
+            return U128(transfer_amount);
+        // If the promise was not successful, we won't transfer any FTs and instead refund the buyer
+        } else {
+            // Get the buyer's current balance and increment it
+            let cur_bal = self.ft_deposits.get(&buyer_id).unwrap();
+            self.ft_deposits.insert(&buyer_id, &(cur_bal + amount));
+            return U128(0);
         }
-
-        //return the price payout out
-        price
     }
 }
 

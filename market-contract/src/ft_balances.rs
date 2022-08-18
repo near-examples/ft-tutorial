@@ -1,4 +1,4 @@
-use near_sdk::require;
+use near_sdk::{require, PromiseResult};
 
 use crate::*;
 
@@ -13,8 +13,7 @@ trait FungibleTokenReceiver {
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
-        amount: U128,
-        msg: String,
+        amount: U128
     ) -> U128;
 
     fn ft_withdraw(
@@ -24,9 +23,9 @@ trait FungibleTokenReceiver {
 
     fn resolve_refund(
         &mut self,
-        amount: U128,
-        caller: AccountId
-    );
+        caller: AccountId,
+        amount: U128
+    ) -> U128;
 }
 
 //implementation of the trait
@@ -36,8 +35,7 @@ impl FungibleTokenReceiver for Contract {
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
-        amount: U128,
-        msg: String,
+        amount: U128
     ) -> U128 {
         // get the contract ID which is the predecessor
         let ft_contract_id = env::predecessor_account_id();
@@ -65,7 +63,7 @@ impl FungibleTokenReceiver for Contract {
         );
 
         // Add the amount to the user's current balance
-        let cur_bal = self.ft_deposits.get(&signer_id).unwrap_or(0);
+        let mut cur_bal = self.ft_deposits.get(&signer_id).unwrap_or(0);
         cur_bal += amount.0;
         self.ft_deposits.insert(&signer_id, &cur_bal);
 
@@ -96,11 +94,11 @@ impl FungibleTokenReceiver for Contract {
 
         // Perform the cross contract call to transfer the FTs to the caller. If anything goes wrong
         // We increment their balance back when we resolve the promise
-        ext_ft_contract::ext(self.ft_id)
+        ext_ft_contract::ext(self.ft_id.clone())
             // Attach 1 yoctoNEAR with static GAS equal to the GAS for nft transfer. Also attach an unused GAS weight of 1 by default.
             .with_attached_deposit(1)
             .ft_transfer(
-                caller, //caller to refund the FTs to
+                caller.clone(), //caller to refund the FTs to
                 amount, //amount to transfer
                 Some("Withdrawing from Marketplace".to_string()), //memo (to include some context)
             )
@@ -113,5 +111,35 @@ impl FungibleTokenReceiver for Contract {
                 amount, //amount to transfer
             )
         );
+    }
+
+    #[private]
+    fn resolve_refund(
+        &mut self,
+        caller: AccountId,
+        amount: U128
+    ) -> U128 {
+        let amount: Balance = amount.into();
+
+        // Get the amount to revert the caller's balance with
+        let revert_amount = match env::promise_result(0) {
+            PromiseResult::NotReady => env::abort(),
+            // If the promise was successful, get the return value and cast it to a U128.
+            PromiseResult::Successful(_) => {
+                0
+            }
+            // If the promise wasn't successful, return the original amount.
+            PromiseResult::Failed => amount,
+        };
+
+        if revert_amount > 0 {
+            // Get the caller's current balance
+            let cur_bal = self.ft_deposits.get(&caller).unwrap_or(0);
+            // Add the amount to the caller's balance
+            let new_bal = cur_bal + revert_amount;
+            self.ft_deposits.insert(&caller, &new_bal);
+        }
+
+        U128(revert_amount)
     }
 }
