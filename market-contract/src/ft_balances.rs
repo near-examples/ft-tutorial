@@ -26,6 +26,11 @@ trait FungibleTokenReceiver {
         caller: AccountId,
         amount: U128
     ) -> U128;
+
+    fn ft_deposits_of(
+        &mut self,
+        account_id: AccountId
+    ) -> U128;
 }
 
 //implementation of the trait
@@ -141,5 +146,13 @@ impl FungibleTokenReceiver for Contract {
         }
 
         U128(revert_amount)
+    }
+
+    /// Get the amount of FTs the user has deposited into the contract
+    fn ft_deposits_of(
+        &mut self,
+        account_id: AccountId
+    ) -> U128 {
+        self.ft_deposits.get(&account_id).unwrap_or(0).into()
     }
 }
