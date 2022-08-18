@@ -54,8 +54,8 @@ impl Contract {
         keys.iter()
             //skip to the index we specified in the start variable
             .skip(start as usize) 
-            //take the first "limit" elements in the vector. If we didn't specify a limit, use 0
-            .take(limit.unwrap_or(0) as usize) 
+            //take the first "limit" elements in the vector. If we didn't specify a limit, use 50
+            .take(limit.unwrap_or(50) as usize) 
             //we'll map the token IDs which are strings into Sale objects
             .map(|token_id| self.sales.get(&token_id).unwrap())
             //since we turned the keys into an iterator, we need to turn it back into a vector to return
@@ -105,8 +105,8 @@ impl Contract {
         keys.iter()
             //skip to the index we specified in the start variable
             .skip(start as usize) 
-            //take the first "limit" elements in the vector. If we didn't specify a limit, use 0
-            .take(limit.unwrap_or(0) as usize) 
+            //take the first "limit" elements in the vector. If we didn't specify a limit, use 50
+            .take(limit.unwrap_or(50) as usize) 
             //we'll map the token IDs which are strings into Sale objects by passing in the unique sale ID (contract + DELIMITER + token ID)
             .map(|token_id| self.sales.get(&format!("{}{}{}", nft_contract_id, DELIMETER, token_id)).unwrap())
             //since we turned the keys into an iterator, we need to turn it back into a vector to return
