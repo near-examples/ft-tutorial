@@ -152,6 +152,7 @@ impl Contract {
     // calls `ft_transfer_call({ "amount": "100" })`, but `receiver_id` only uses
     // 80, `ft_on_transfer` will resolve with `"20"`, and `ft_resolve_transfer`
     // will return `"80"`.
+    #[private]
     pub fn ft_resolve_transfer(
         &mut self,
         sender_id: &AccountId,
