@@ -28,7 +28,7 @@ trait FungibleTokenReceiver {
     ) -> U128;
 
     fn ft_deposits_of(
-        &mut self,
+        &self,
         account_id: AccountId
     ) -> U128;
 }
@@ -150,7 +150,7 @@ impl FungibleTokenReceiver for Contract {
 
     /// Get the amount of FTs the user has deposited into the contract
     fn ft_deposits_of(
-        &mut self,
+        &self,
         account_id: AccountId
     ) -> U128 {
         self.ft_deposits.get(&account_id).unwrap_or(0).into()
