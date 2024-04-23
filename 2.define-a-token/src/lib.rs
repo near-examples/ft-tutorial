@@ -1,7 +1,6 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
-use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault, StorageUsage};
+use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, NearSchema, NearToken, PanicOnDefault, StorageUsage};
 
 pub mod ft_core;
 pub mod metadata;
@@ -17,13 +16,15 @@ pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Contract {
     /// Metadata for the contract itself
     pub metadata: LazyOption<FungibleTokenMetadata>,
 }
 
 /// Helper structure for keys of the persistent collections.
-#[derive(BorshSerialize)]
+#[derive(BorshSerialize, BorshStorageKey)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     Accounts,
     Metadata
@@ -34,7 +35,7 @@ impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
     #[init]
-    pub fn new_default_meta(owner_id: AccountId, total_supply: U128) -> Self {
+    pub fn new_default_meta(owner_id: AccountId, total_supply: NearToken) -> Self {
         // Calls the other function "new: with some default metadata and the owner_id & total supply passed in 
         Self::new(
             owner_id,
@@ -56,13 +57,13 @@ impl Contract {
     #[init]
     pub fn new(
         owner_id: AccountId,
-        total_supply: U128,
+        total_supply: NearToken,
         metadata: FungibleTokenMetadata,
     ) -> Self {
         // Create a variable of type Self with all the fields initialized. 
-        let mut this = Self {
+        let this = Self {
             metadata: LazyOption::new(
-                StorageKey::Metadata.try_to_vec().unwrap(),
+                StorageKey::Metadata,
                 Some(&metadata),
             )
         };

@@ -13,11 +13,10 @@
 //! [`FtMint::emit_many`], [`FtTransfer::emit_many`],
 //! or [`FtBurn::emit_many`] respectively.
 
-use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use near_sdk::serde::Serialize;
 
-use near_sdk::env;
+use near_sdk::{env, NearToken};
 
 #[derive(Serialize, Debug)]
 #[serde(tag = "standard")]
@@ -51,7 +50,7 @@ impl<'a> NearEvent<'a> {
 #[derive(Serialize, Debug, Clone)]
 pub struct FtMint<'a> {
     pub owner_id: &'a AccountId,
-    pub amount: &'a U128,
+    pub amount: &'a NearToken,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<&'a str>,
 }
@@ -77,7 +76,7 @@ impl FtMint<'_> {
 pub struct FtTransfer<'a> {
     pub old_owner_id: &'a AccountId,
     pub new_owner_id: &'a AccountId,
-    pub amount: &'a U128,
+    pub amount: &'a NearToken,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<&'a str>,
 }

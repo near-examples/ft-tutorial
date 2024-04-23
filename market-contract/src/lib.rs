@@ -1,17 +1,15 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
-use near_sdk::json_types::{U128, U64};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
-    Promise, CryptoHash, BorshStorageKey,
+    assert_one_yocto, env, ext_contract, near_bindgen, AccountId, NearToken, Gas, PanicOnDefault,
+    Promise, CryptoHash, BorshStorageKey, NearSchema
 };
 use std::collections::HashMap;
 
 use crate::external::*;
 use crate::internal::*;
 use crate::sale::*;
-use near_sdk::env::STORAGE_PRICE_PER_BYTE;
 
 mod external;
 mod internal;
@@ -21,18 +19,15 @@ mod sale;
 mod sale_views;
 
 //GAS constants to attach to calls
-const GAS_FOR_RESOLVE_PURCHASE: Gas = Gas(115_000_000_000_000);
-const GAS_FOR_RESOLVE_REFUND: Gas = Gas(30_000_000_000_000);
-const GAS_FOR_NFT_TRANSFER: Gas = Gas(15_000_000_000_000);
-
-//the minimum storage to have a sale on the contract.
-const STORAGE_PER_SALE: u128 = 1000 * STORAGE_PRICE_PER_BYTE;
+const GAS_FOR_RESOLVE_PURCHASE: Gas = Gas::from_tgas(115);
+const GAS_FOR_RESOLVE_REFUND: Gas = Gas::from_tgas(30);
+const GAS_FOR_NFT_TRANSFER: Gas = Gas::from_tgas(15);
 
 //every sale will have a unique ID which is `CONTRACT + DELIMITER + TOKEN_ID`
 static DELIMETER: &str = ".";
 
 //Creating custom types to use within the contract. This makes things more readable. 
-pub type SalePriceInFTs = U128;
+pub type SalePriceInFTs = NearToken;
 pub type TokenId = String;
 pub type FungibleTokenId = AccountId;
 pub type ContractAndTokenId = String;
@@ -40,13 +35,13 @@ pub type ContractAndTokenId = String;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Payout {
-    pub payout: HashMap<AccountId, U128>,
+    pub payout: HashMap<AccountId, NearToken>,
 } 
-
 
 //main contract struct to store all the information
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Contract {
     //keep track of the owner of the contract
     pub owner_id: AccountId,
@@ -68,14 +63,15 @@ pub struct Contract {
     pub by_nft_contract_id: LookupMap<AccountId, UnorderedSet<TokenId>>,
 
     //keep track of the storage that accounts have payed
-    pub storage_deposits: LookupMap<AccountId, Balance>,
+    pub storage_deposits: LookupMap<AccountId, NearToken>,
 
     //keep track of how many FTs each account has deposited in order to purchase NFTs with
-    pub ft_deposits: LookupMap<AccountId, Balance>,
+    pub ft_deposits: LookupMap<AccountId, NearToken>,
 }
 
 /// Helper structure to for keys of the persistent collections.
 #[derive(BorshStorageKey, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     Sales,
     ByOwnerId,
@@ -133,15 +129,15 @@ impl Contract {
 
         //make sure the deposit is greater than or equal to the minimum storage for a sale
         assert!(
-            deposit >= STORAGE_PER_SALE,
+            deposit.ge(&storage_per_sale()),
             "Requires minimum deposit of {}",
-            STORAGE_PER_SALE
+            storage_per_sale()
         );
 
         //get the balance of the account (if the account isn't in the map we default to a balance of 0)
-        let mut balance: u128 = self.storage_deposits.get(&storage_account_id).unwrap_or(0);
+        let mut balance = self.storage_deposits.get(&storage_account_id).unwrap_or(NearToken::from_yoctonear(0));
         //add the deposit to their balance
-        balance += deposit;
+        balance = balance.saturating_add(deposit);
         //insert the balance back into the map for that account ID
         self.storage_deposits.insert(&storage_account_id, &balance);
     }
@@ -158,38 +154,38 @@ impl Contract {
         //the account to withdraw storage to is always the function caller
         let owner_id = env::predecessor_account_id();
         //get the amount that the user has by removing them from the map. If they're not in the map, default to 0
-        let mut amount = self.storage_deposits.remove(&owner_id).unwrap_or(0);
+        let mut amount = self.storage_deposits.remove(&owner_id).unwrap_or(NearToken::from_yoctonear(0));
         
         //how many sales is that user taking up currently. This returns a set
         let sales = self.by_owner_id.get(&owner_id);
         //get the length of that set. 
         let len = sales.map(|s| s.len()).unwrap_or_default();
         //how much NEAR is being used up for all the current sales on the account 
-        let diff = u128::from(len) * STORAGE_PER_SALE;
+        let diff = storage_per_sale().saturating_mul(len.into());
 
         //the excess to withdraw is the total storage paid - storage being used up.
-        amount -= diff;
+        amount = amount.saturating_sub(diff);
 
         //if that excess to withdraw is > 0, we transfer the amount to the user.
-        if amount > 0 {
+        if amount.gt(&NearToken::from_yoctonear(0)) {
             Promise::new(owner_id.clone()).transfer(amount);
         }
         //we need to add back the storage being used up into the map if it's greater than 0.
         //this is so that if the user had 500 sales on the market, we insert that value here so
         //if those sales get taken down, the user can then go and withdraw 500 sales worth of storage.
-        if diff > 0 {
+        if diff.gt(&NearToken::from_yoctonear(0)) {
             self.storage_deposits.insert(&owner_id, &diff);
         }
     }
 
     /// views
     //return the minimum storage for 1 sale
-    pub fn storage_minimum_balance(&self) -> U128 {
-        U128(STORAGE_PER_SALE)
+    pub fn storage_minimum_balance(&self) -> NearToken {
+        storage_per_sale()
     }
 
     //return how much storage an account has paid for
-    pub fn storage_balance_of(&self, account_id: AccountId) -> U128 {
-        U128(self.storage_deposits.get(&account_id).unwrap_or(0))
+    pub fn storage_balance_of(&self, account_id: AccountId) -> NearToken {
+        self.storage_deposits.get(&account_id).unwrap_or(NearToken::from_yoctonear(0))
     }
 }

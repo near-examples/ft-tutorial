@@ -5,7 +5,8 @@ use near_sdk::{near_bindgen};
 
 use crate::*;
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize, NearSchema)]
+#[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct FungibleTokenMetadata {
     /*
