@@ -13,24 +13,24 @@ trait FungibleTokenReceiver {
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
-        amount: NearToken
-    ) -> NearToken;
+        amount: U128
+    ) -> U128;
 
     fn ft_withdraw(
         &mut self,
-        amount: NearToken
+        amount: U128
     );
 
     fn resolve_refund(
         &mut self,
         caller: AccountId,
-        amount: NearToken
-    ) -> NearToken;
+        amount: U128
+    ) -> U128;
 
     fn ft_deposits_of(
         &self,
         account_id: AccountId
-    ) -> NearToken;
+    ) -> U128;
 }
 
 //implementation of the trait
@@ -40,8 +40,8 @@ impl FungibleTokenReceiver for Contract {
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
-        amount: NearToken
-    ) -> NearToken {
+        amount: U128
+    ) -> U128 {
         // get the contract ID which is the predecessor
         let ft_contract_id = env::predecessor_account_id();
         // Ensure only the specified FT can be used
@@ -69,18 +69,19 @@ impl FungibleTokenReceiver for Contract {
 
         // Add the amount to the user's current balance
         let mut cur_bal = self.ft_deposits.get(&signer_id).unwrap_or(NearToken::from_yoctonear(0));
-        cur_bal = cur_bal.saturating_add(amount);
+        cur_bal = cur_bal.saturating_add(NearToken::from_yoctonear(amount.0));
         self.ft_deposits.insert(&signer_id, &cur_bal);
 
         // We don't return any FTs to the sender because we're storing all of them in their balance
-        NearToken::from_yoctonear(0)
+        U128(0)
     }
 
     #[payable]
     fn ft_withdraw(
         &mut self,
-        amount: NearToken
+        amount: U128
     ) {
+        let casted_amount = NearToken::from_yoctonear(amount.0);
         //make sure the user attaches exactly 1 yoctoNEAR for security purposes.
         //this will redirect them to the NEAR wallet (or requires a full access key). 
         assert_one_yocto();
@@ -89,12 +90,12 @@ impl FungibleTokenReceiver for Contract {
         let caller = env::predecessor_account_id();
         let cur_bal = self.ft_deposits.get(&caller).unwrap_or(NearToken::from_yoctonear(0));
         require!(
-            cur_bal.ge(&amount),
+            cur_bal.ge(&casted_amount),
             "Insufficient balance"
         );
 
         // Subtract the amount from the caller's balance
-        let new_bal = cur_bal.saturating_sub(amount);
+        let new_bal = cur_bal.saturating_sub(casted_amount);
         self.ft_deposits.insert(&caller, &new_bal);
 
         // Perform the cross contract call to transfer the FTs to the caller. If anything goes wrong
@@ -122,8 +123,8 @@ impl FungibleTokenReceiver for Contract {
     fn resolve_refund(
         &mut self,
         caller: AccountId,
-        amount: NearToken
-    ) -> NearToken {
+        amount: U128
+    ) -> U128 {
         // Get the amount to revert the caller's balance with
         let revert_amount = match env::promise_result(0) {
             // If the promise was successful, get the return value
@@ -131,7 +132,7 @@ impl FungibleTokenReceiver for Contract {
                 NearToken::from_yoctonear(0)
             }
             // If the promise wasn't successful, return the original amount.
-            PromiseResult::Failed => amount,
+            PromiseResult::Failed => NearToken::from_yoctonear(amount.0),
         };
 
         if revert_amount.gt(&NearToken::from_yoctonear(0)) {
@@ -142,14 +143,14 @@ impl FungibleTokenReceiver for Contract {
             self.ft_deposits.insert(&caller, &new_bal);
         }
 
-        revert_amount
+        U128(revert_amount.as_yoctonear())
     }
 
     /// Get the amount of FTs the user has deposited into the contract
     fn ft_deposits_of(
         &self,
         account_id: AccountId
-    ) -> NearToken {
-        self.ft_deposits.get(&account_id).unwrap_or(NearToken::from_yoctonear(0))
+    ) -> U128 {
+        U128(self.ft_deposits.get(&account_id).unwrap_or(NearToken::from_yoctonear(0)).as_yoctonear())
     }
 }

@@ -1,5 +1,6 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
+use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, NearToken, PanicOnDefault, StorageUsage, NearSchema};
 
 pub mod ft_core;

@@ -1,5 +1,6 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
+use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, NearSchema, NearToken, PanicOnDefault, StorageUsage};
 
 pub mod ft_core;
@@ -35,7 +36,7 @@ impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
     #[init]
-    pub fn new_default_meta(owner_id: AccountId, total_supply: NearToken) -> Self {
+    pub fn new_default_meta(owner_id: AccountId, total_supply: U128) -> Self {
         // Calls the other function "new: with some default metadata and the owner_id & total supply passed in 
         Self::new(
             owner_id,
@@ -57,7 +58,7 @@ impl Contract {
     #[init]
     pub fn new(
         owner_id: AccountId,
-        total_supply: NearToken,
+        total_supply: U128,
         metadata: FungibleTokenMetadata,
     ) -> Self {
         // Create a variable of type Self with all the fields initialized. 

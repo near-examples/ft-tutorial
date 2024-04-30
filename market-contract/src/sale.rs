@@ -68,7 +68,9 @@ impl Contract {
     /// Place an offer on a specific sale. 
     /// The sale will go through as long as you have enough FTs in your balance to cover the amount and the amount is greater than or equal to the sale price
     #[payable]
-    pub fn offer(&mut self, nft_contract_id: AccountId, token_id: String, amount: NearToken) {
+    pub fn offer(&mut self, nft_contract_id: AccountId, token_id: String, amount: U128) {
+        let casted_amount = NearToken::from_yoctonear(amount.0);
+
         //assert that the user has attached exactly 1 yoctoNEAR (for security reasons)
         assert_one_yocto();
 
@@ -88,14 +90,14 @@ impl Contract {
         let price = sale.sale_conditions;
 
         //make sure the amount offering is greater than or equal to the price of the token
-        assert!(amount.ge(&price), "Offer amount must be greater than or eqaul to the price: {:?}", price);
+        assert!(casted_amount.ge(&price), "Offer amount must be greater than or eqaul to the price: {:?}", price);
 
         // get the amount of FTs the buyer has in their balance
         let cur_bal = self.ft_deposits.get(&buyer_id).unwrap();
         //make sure the buyer has enough FTs to cover the amount they're offering
-        assert!(cur_bal.ge(&amount), "Not enough FTs in balance to cover offer: {:?}", amount);
+        assert!(cur_bal.ge(&casted_amount), "Not enough FTs in balance to cover offer: {:?}", amount);
         // if the buyer has enough FTs, subtract the amount from their balance
-        self.ft_deposits.insert(&buyer_id, &(cur_bal.saturating_sub(amount)));
+        self.ft_deposits.insert(&buyer_id, &(cur_bal.saturating_sub(casted_amount)));
 
         //process the purchase (which will remove the sale from the market and perform the transfer)
         self.process_purchase(
@@ -113,7 +115,7 @@ impl Contract {
         &mut self,
         nft_contract_id: AccountId,
         token_id: String,
-        amount: NearToken,
+        amount: U128,
         buyer_id: AccountId,
     ) -> Promise {
         //get the sale object by removing the sale
@@ -155,9 +157,9 @@ impl Contract {
         &mut self,
         seller_id: AccountId,
         buyer_id: AccountId,
-        price: NearToken,
-    ) -> NearToken {
-        let amount = price;
+        price: U128,
+    ) -> U128 {
+        let amount = NearToken::from_yoctonear(price.0);
 
         // Get the amount to revert the caller's balance with
         let transfer_amount = match env::promise_result(0) {
@@ -177,16 +179,16 @@ impl Contract {
                 .with_attached_deposit(NearToken::from_yoctonear(1))
                 .ft_transfer(
                     seller_id, //seller to transfer the FTs to
-                    transfer_amount, //amount to transfer
+                    U128(transfer_amount.as_yoctonear()), //amount to transfer
                     Some("Sale from marketplace".to_string()), //memo (to include some context)
                 );
-            return transfer_amount;
+            return U128(transfer_amount.as_yoctonear());
         // If the promise was not successful, we won't transfer any FTs and instead refund the buyer
         } else {
             // Get the buyer's current balance and increment it
             let cur_bal = self.ft_deposits.get(&buyer_id).unwrap();
             self.ft_deposits.insert(&buyer_id, &(cur_bal.saturating_add(amount)));
-            return NearToken::from_yoctonear(0);
+            return U128(0);
         }
     }
 }
