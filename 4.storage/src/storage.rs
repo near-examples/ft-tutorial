@@ -1,5 +1,5 @@
-use near_sdk::{env, log, AccountId, NearToken, Promise};
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::{env, log, AccountId, Promise};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
 use crate::*;
@@ -14,8 +14,8 @@ use crate::*;
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalance {
-    pub total: NearToken,
-    pub available: NearToken,
+    pub total: U128,
+    pub available: U128,
 }
 
 // The below structure will be returned for the method `storage_balance_bounds`.
@@ -34,8 +34,8 @@ pub struct StorageBalance {
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalanceBounds {
-    pub min: NearToken,
-    pub max: Option<NearToken>,
+    pub min: U128,
+    pub max: Option<U128>,
 }
 
 pub trait StorageManagement {
@@ -86,7 +86,7 @@ impl StorageManagement for Contract {
         registration_only: Option<bool>,
     ) -> StorageBalance {
         // Get the amount of $NEAR to deposit
-        let amount: NearToken = env::attached_deposit();
+        let amount = env::attached_deposit();
         // If an account was specified, use that. Otherwise, use the predecessor account.
         let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
         
@@ -99,7 +99,7 @@ impl StorageManagement for Contract {
         // Register the account and refund any excess $NEAR
         } else {
             // Get the minimum required storage and ensure the deposit is at least that amount
-            let min_balance = self.storage_balance_bounds().min;
+            let min_balance = NearToken::from_yoctonear(self.storage_balance_bounds().min.0);
             if amount < min_balance {
                 env::panic_str("The attached deposit is less than the minimum storage balance");
             }
@@ -114,25 +114,25 @@ impl StorageManagement for Contract {
         }
 
         // Return the storage balance of the account
-        StorageBalance { total: self.storage_balance_bounds().min, available: NearToken::from_yoctonear(0) }
+        StorageBalance { total: self.storage_balance_bounds().min, available: U128(0) }
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
         // Calculate the required storage balance by taking the bytes for the longest account ID and multiplying by the current byte cost
         let required_storage_balance =
-          env::storage_byte_cost().saturating_mul(self.bytes_for_longest_account_id.into());
+            env::storage_byte_cost().saturating_mul(self.bytes_for_longest_account_id.into());
         
         // Storage balance bounds will have min == max == required_storage_balance
         StorageBalanceBounds {
-            min: required_storage_balance.into(),
-            max: Some(required_storage_balance.into()),
+            min: U128(required_storage_balance.as_yoctonear()),
+            max: Some(U128(required_storage_balance.as_yoctonear())),
         }
     }
 
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
         // Get the storage balance of the account. Available will always be 0 since you can't overpay for storage.
         if self.accounts.contains_key(&account_id) {
-            Some(StorageBalance { total: self.storage_balance_bounds().min, available: NearToken::from_yoctonear(0) })
+            Some(StorageBalance { total: self.storage_balance_bounds().min, available: U128(0) })
         } else {
             None
         }

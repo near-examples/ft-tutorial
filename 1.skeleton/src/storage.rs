@@ -1,4 +1,4 @@
-use near_sdk::{env, log, AccountId, NearToken, Promise};
+use near_sdk::{env, log, AccountId, Promise};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
@@ -14,8 +14,8 @@ use crate::*;
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalance {
-    pub total: NearToken,
-    pub available: NearToken,
+    pub total: U128,
+    pub available: U128,
 }
 
 // The below structure will be returned for the method `storage_balance_bounds`.
@@ -34,8 +34,8 @@ pub struct StorageBalance {
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalanceBounds {
-    pub min: NearToken,
-    pub max: Option<NearToken>,
+    pub min: U128,
+    pub max: Option<U128>,
 }
 
 pub trait StorageManagement {
