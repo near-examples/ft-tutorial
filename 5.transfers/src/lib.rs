@@ -48,7 +48,7 @@ impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
     #[init]
-    pub fn new_default_meta(owner_id: AccountId, total_supply: NearToken) -> Self {
+    pub fn new_default_meta(owner_id: AccountId, total_supply: U128) -> Self {
         // Calls the other function "new: with some default metadata and the owner_id & total supply passed in 
         Self::new(
             owner_id,
@@ -70,13 +70,14 @@ impl Contract {
     #[init]
     pub fn new(
         owner_id: AccountId,
-        total_supply: NearToken,
+        total_supply: U128,
         metadata: FungibleTokenMetadata,
     ) -> Self {
+        let casted_total_supply = NearToken::from_yoctonear(total_supply.0);
         // Create a variable of type Self with all the fields initialized. 
         let mut this = Self {
             // Set the total supply
-            total_supply,
+            total_supply: casted_total_supply,
             // Set the bytes for the longest account ID to 0 temporarily until it's calculated later
             bytes_for_longest_account_id: 0,
             // Storage keys are simply the prefixes used for the collections. This helps avoid data collision
@@ -92,12 +93,12 @@ impl Contract {
 
         // Register the owner's account and set their balance to the total supply.
         this.internal_register_account(&owner_id);
-        this.internal_deposit(&owner_id, total_supply.into());
+        this.internal_deposit(&owner_id, casted_total_supply);
         
         // Emit an event showing that the FTs were minted
         FtMint {
             owner_id: &owner_id,
-            amount: &total_supply,
+            amount: &casted_total_supply,
             memo: Some("Initial token supply is minted"),
         }
         .emit();

@@ -36,7 +36,7 @@ pub type ContractAndTokenId = String;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Payout {
-    pub payout: HashMap<AccountId, NearToken>,
+    pub payout: HashMap<AccountId, U128>,
 } 
 
 //main contract struct to store all the information

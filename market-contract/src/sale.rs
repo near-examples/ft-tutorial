@@ -9,7 +9,7 @@ pub struct Sale {
     //owner of the sale
     pub owner_id: AccountId,
     //market contract's approval ID to transfer the token on behalf of the owner
-    pub approval_id: u64,
+    pub approval_id: u32,
     //nft contract where the token was minted
     pub nft_contract_id: String,
     //actual token ID for sale
@@ -40,7 +40,7 @@ impl Contract {
         &mut self,
         nft_contract_id: AccountId,
         token_id: String,
-        price: NearToken,
+        price: U128,
     ) {
         //assert that the user has attached exactly 1 yoctoNEAR (for security reasons)
         assert_one_yocto();
@@ -60,7 +60,7 @@ impl Contract {
         );
         
         //set the sale conditions equal to the passed in price
-        sale.sale_conditions = price;
+        sale.sale_conditions = NearToken::from_yoctonear(price.0);
         //insert the sale back into the map for the unique sale ID
         self.sales.insert(&contract_and_token_id, &sale);
     }
@@ -204,6 +204,6 @@ trait ExtSelf {
     fn resolve_purchase(
         &mut self,
         buyer_id: AccountId,
-        price: NearToken,
+        price: U128,
     ) -> Promise;
 }

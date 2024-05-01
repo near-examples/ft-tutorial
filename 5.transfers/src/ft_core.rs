@@ -95,7 +95,7 @@ impl FungibleTokenCore for Contract {
             .then(
                 Self::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
-                    .ft_resolve_transfer(&sender_id, receiver_id, casted_amount),
+                    .ft_resolve_transfer(&sender_id, receiver_id, amount),
             )
             .into()
     }
@@ -173,22 +173,23 @@ impl Contract {
         &mut self,
         sender_id: &AccountId,
         receiver_id: AccountId,
-        amount: NearToken,
+        amount: U128,
     ) -> U128 {
+        let casted_amount = NearToken::from_yoctonear(amount.0);
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
             // If the promise was successful, get the return value
             PromiseResult::Successful(value) => {
                 // If we can properly parse the value, the unused amount is equal to whatever is smaller - the unused amount or the original amount (to prevent malicious contracts)
                 if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<NearToken>(&value) {
-                    std::cmp::min(amount, unused_amount)
+                    std::cmp::min(casted_amount, unused_amount)
                 // If we can't properly parse the value, the original amount is returned.
                 } else {
-                    amount
+                    casted_amount
                 }
             }
             // If the promise wasn't successful, return the original amount.
-            PromiseResult::Failed => amount,
+            PromiseResult::Failed => casted_amount,
         };
 
         // If there is some unused amount, we should refund the sender
@@ -203,7 +204,7 @@ impl Contract {
                 self.internal_transfer(&receiver_id, &sender_id, refund_amount, Some("Refund".to_string()));
                 
                 // Return what was actually used (the amount sent - refund)
-                let used_amount = amount
+                let used_amount = casted_amount
                     .checked_sub(refund_amount)
                     .unwrap_or_else(|| env::panic_str("Total supply overflow"));
                 return U128(used_amount.as_yoctonear());
@@ -211,6 +212,6 @@ impl Contract {
         }
 
         // If the unused amount is 0, return the original amount.
-        U128(amount.as_yoctonear())
+        amount
     }
 }
