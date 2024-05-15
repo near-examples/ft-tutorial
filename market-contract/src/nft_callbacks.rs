@@ -58,9 +58,9 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         //we need to enforce that the user has enough storage for 1 EXTRA sale.  
 
         //get the storage for a sale
-        let storage_amount = NearToken::from_yoctonear(self.storage_minimum_balance().0);
+        let storage_amount = self.storage_minimum_balance();
         //get the total storage paid by the owner
-        let owner_paid_storage = self.storage_deposits.get(&signer_id).unwrap_or(NearToken::from_yoctonear(0));
+        let owner_paid_storage = self.storage_deposits.get(&signer_id).unwrap_or(ZERO_TOKEN);
         //get the storage required which is simply the storage for the number of sales they have + 1 
         let signer_storage_required = storage_amount.saturating_mul(self.get_supply_by_owner_id(signer_id).0 as u128 + 1);
         

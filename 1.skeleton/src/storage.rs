@@ -14,8 +14,8 @@ use crate::*;
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalance {
-    pub total: U128,
-    pub available: U128,
+    pub total: NearToken,
+    pub available: NearToken,
 }
 
 // The below structure will be returned for the method `storage_balance_bounds`.
@@ -34,8 +34,8 @@ pub struct StorageBalance {
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalanceBounds {
-    pub min: U128,
-    pub max: Option<U128>,
+    pub min: NearToken,
+    pub max: Option<NearToken>,
 }
 
 pub trait StorageManagement {

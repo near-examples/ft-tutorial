@@ -24,6 +24,8 @@ const GAS_FOR_RESOLVE_PURCHASE: Gas = Gas::from_tgas(115);
 const GAS_FOR_RESOLVE_REFUND: Gas = Gas::from_tgas(30);
 const GAS_FOR_NFT_TRANSFER: Gas = Gas::from_tgas(15);
 
+pub const ZERO_TOKEN: NearToken = NearToken::from_yoctonear(0);
+
 //every sale will have a unique ID which is `CONTRACT + DELIMITER + TOKEN_ID`
 static DELIMETER: &str = ".";
 
@@ -136,7 +138,7 @@ impl Contract {
         );
 
         //get the balance of the account (if the account isn't in the map we default to a balance of 0)
-        let mut balance = self.storage_deposits.get(&storage_account_id).unwrap_or(NearToken::from_yoctonear(0));
+        let mut balance = self.storage_deposits.get(&storage_account_id).unwrap_or(ZERO_TOKEN);
         //add the deposit to their balance
         balance = balance.saturating_add(deposit);
         //insert the balance back into the map for that account ID
@@ -155,7 +157,7 @@ impl Contract {
         //the account to withdraw storage to is always the function caller
         let owner_id = env::predecessor_account_id();
         //get the amount that the user has by removing them from the map. If they're not in the map, default to 0
-        let mut amount = self.storage_deposits.remove(&owner_id).unwrap_or(NearToken::from_yoctonear(0));
+        let mut amount = self.storage_deposits.remove(&owner_id).unwrap_or(ZERO_TOKEN);
         
         //how many sales is that user taking up currently. This returns a set
         let sales = self.by_owner_id.get(&owner_id);
@@ -168,25 +170,25 @@ impl Contract {
         amount = amount.saturating_sub(diff);
 
         //if that excess to withdraw is > 0, we transfer the amount to the user.
-        if amount.gt(&NearToken::from_yoctonear(0)) {
+        if amount.gt(&ZERO_TOKEN) {
             Promise::new(owner_id.clone()).transfer(amount);
         }
         //we need to add back the storage being used up into the map if it's greater than 0.
         //this is so that if the user had 500 sales on the market, we insert that value here so
         //if those sales get taken down, the user can then go and withdraw 500 sales worth of storage.
-        if diff.gt(&NearToken::from_yoctonear(0)) {
+        if diff.gt(&ZERO_TOKEN) {
             self.storage_deposits.insert(&owner_id, &diff);
         }
     }
 
     /// views
     //return the minimum storage for 1 sale
-    pub fn storage_minimum_balance(&self) -> U128 {
-        U128(storage_per_sale().as_yoctonear())
+    pub fn storage_minimum_balance(&self) -> NearToken {
+        storage_per_sale()
     }
 
     //return how much storage an account has paid for
-    pub fn storage_balance_of(&self, account_id: AccountId) -> U128 {
-        U128(self.storage_deposits.get(&account_id).unwrap_or(NearToken::from_yoctonear(0)).as_yoctonear())
+    pub fn storage_balance_of(&self, account_id: AccountId) -> NearToken {
+        self.storage_deposits.get(&account_id).unwrap_or(ZERO_TOKEN)
     }
 }

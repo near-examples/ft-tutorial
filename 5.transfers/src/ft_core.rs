@@ -17,7 +17,7 @@ pub trait FungibleTokenCore {
     /// - `receiver_id` - the account ID of the receiver.
     /// - `amount` - the amount of tokens to transfer. Must be a positive number in decimal string representation.
     /// - `memo` - an optional string field in a free form to associate a memo with this transfer.
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: NearToken, memo: Option<String>);
 
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id` account. Then
     /// calls `ft_on_transfer` method on `receiver_id` contract and attaches a callback to resolve this transfer.
@@ -45,45 +45,44 @@ pub trait FungibleTokenCore {
     fn ft_transfer_call(
         &mut self,
         receiver_id: AccountId,
-        amount: U128,
+        amount: NearToken,
         memo: Option<String>,
         msg: String,
-    ) -> PromiseOrValue<U128>;
+    ) -> PromiseOrValue<NearToken>;
 
     /// Returns the total supply of the token in a decimal string representation.
     fn ft_total_supply(&self) -> U128;
 
     /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn ft_balance_of(&self, account_id: AccountId) -> U128;
+    fn ft_balance_of(&self, account_id: AccountId) -> NearToken;
 }
 
 #[near_bindgen]
 impl FungibleTokenCore for Contract {
     #[payable]
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: NearToken, memo: Option<String>) {
         // Assert that the user attached exactly 1 yoctoNEAR. This is for security and so that the user will be required to sign with a FAK.
         assert_one_yocto();
         // The sender is the user who called the method
         let sender_id = env::predecessor_account_id();
         // Transfer the tokens
-        self.internal_transfer(&sender_id, &receiver_id, NearToken::from_yoctonear(amount.0), memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
     }
 
     #[payable]
     fn ft_transfer_call(
         &mut self,
         receiver_id: AccountId,
-        amount: U128,
+        amount: NearToken,
         memo: Option<String>,
         msg: String,
-    ) -> PromiseOrValue<U128> {
+    ) -> PromiseOrValue<NearToken> {
         // Assert that the user attached exactly 1 yoctoNEAR. This is for security and so that the user will be required to sign with a FAK.
         assert_one_yocto();
         // The sender is the user who called the method
         let sender_id = env::predecessor_account_id();
         // Transfer the tokens
-        let casted_amount = NearToken::from_yoctonear(amount.0);
-        self.internal_transfer(&sender_id, &receiver_id, casted_amount, memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
 
         // Initiating receiver's call and the callback
         // Defaulting GAS weight to 1, no attached deposit, and static GAS equal to the GAS for ft transfer call.
@@ -105,9 +104,9 @@ impl FungibleTokenCore for Contract {
         U128(self.total_supply.as_yoctonear())
     }
 
-    fn ft_balance_of(&self, account_id: AccountId) -> U128 {
+    fn ft_balance_of(&self, account_id: AccountId) -> NearToken {
         // Return the balance of the account
-        U128(self.accounts.get(&account_id).unwrap_or(NearToken::from_yoctonear(0)).as_yoctonear())
+        self.accounts.get(&account_id).unwrap_or(ZERO_TOKEN)
     }
 }
 
@@ -134,9 +133,9 @@ pub trait FungibleTokenReceiver {
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
-        amount: U128,
+        amount: NearToken,
         msg: String,
-    ) -> PromiseOrValue<U128>;
+    ) -> PromiseOrValue<NearToken>;
 }
 
 #[near_bindgen]
@@ -173,30 +172,29 @@ impl Contract {
         &mut self,
         sender_id: &AccountId,
         receiver_id: AccountId,
-        amount: U128,
-    ) -> U128 {
-        let casted_amount = NearToken::from_yoctonear(amount.0);
+        amount: NearToken,
+    ) -> NearToken {
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
             // If the promise was successful, get the return value
             PromiseResult::Successful(value) => {
                 // If we can properly parse the value, the unused amount is equal to whatever is smaller - the unused amount or the original amount (to prevent malicious contracts)
                 if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<NearToken>(&value) {
-                    std::cmp::min(casted_amount, unused_amount)
+                    std::cmp::min(amount, unused_amount)
                 // If we can't properly parse the value, the original amount is returned.
                 } else {
-                    casted_amount
+                  amount
                 }
             }
             // If the promise wasn't successful, return the original amount.
-            PromiseResult::Failed => casted_amount,
+            PromiseResult::Failed => amount,
         };
 
         // If there is some unused amount, we should refund the sender
-        if unused_amount.gt(&NearToken::from_yoctonear(0)) {
+        if unused_amount.gt(&ZERO_TOKEN) {
             // Get the receiver's balance. We can only refund the sender if the receiver has enough balance.
-            let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(NearToken::from_yoctonear(0));
-            if receiver_balance.gt(&NearToken::from_yoctonear(0)) {
+            let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(ZERO_TOKEN);
+            if receiver_balance.gt(&ZERO_TOKEN) {
                 // The amount to refund is the smaller of the unused amount and the receiver's balance as we can only refund up to what the receiver currently has.
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
                 
@@ -204,10 +202,10 @@ impl Contract {
                 self.internal_transfer(&receiver_id, &sender_id, refund_amount, Some("Refund".to_string()));
                 
                 // Return what was actually used (the amount sent - refund)
-                let used_amount = casted_amount
+                let used_amount = amount
                     .checked_sub(refund_amount)
                     .unwrap_or_else(|| env::panic_str("Total supply overflow"));
-                return U128(used_amount.as_yoctonear());
+                return used_amount;
             }
         }
 

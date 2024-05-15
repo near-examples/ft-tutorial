@@ -18,6 +18,8 @@ const DATA_IMAGE_SVG_GT_ICON: &str = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
 /// The specific version of the standard we're using
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
+pub const ZERO_TOKEN: NearToken = NearToken::from_yoctonear(0);
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 #[borsh(crate = "near_sdk::borsh")]

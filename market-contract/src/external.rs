@@ -21,7 +21,7 @@ trait ExtFtContract {
     fn ft_transfer(
         &mut self,
         receiver_id: AccountId, 
-        amount: U128, 
+        amount: NearToken, 
         memo: Option<String>
     );
 }

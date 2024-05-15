@@ -29,7 +29,7 @@ impl Contract {
 
     /// Internal method for registering an account with the contract.
     pub(crate) fn internal_register_account(&mut self, account_id: &AccountId) {
-        if self.accounts.insert(account_id, &NearToken::from_yoctonear(0)).is_some() {
+        if self.accounts.insert(account_id, &ZERO_TOKEN).is_some() {
             env::panic_str("The account is already registered");
         }
     }
@@ -39,7 +39,7 @@ impl Contract {
     pub(crate) fn measure_bytes_for_longest_account_id(&mut self) {
         let initial_storage_usage = env::storage_usage();
         let tmp_account_id = AccountId::from_str(&"a".repeat(64)).unwrap();
-        self.accounts.insert(&tmp_account_id, &NearToken::from_yoctonear(0));
+        self.accounts.insert(&tmp_account_id, &ZERO_TOKEN);
         self.bytes_for_longest_account_id = env::storage_usage() - initial_storage_usage;
         self.accounts.remove(&tmp_account_id);
     }

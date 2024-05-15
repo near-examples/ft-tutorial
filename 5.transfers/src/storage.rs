@@ -14,8 +14,8 @@ use crate::*;
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalance {
-    pub total: U128,
-    pub available: U128,
+    pub total: NearToken,
+    pub available: NearToken,
 }
 
 // The below structure will be returned for the method `storage_balance_bounds`.
@@ -34,8 +34,8 @@ pub struct StorageBalance {
 #[borsh(crate = "near_sdk::borsh")]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalanceBounds {
-    pub min: U128,
-    pub max: Option<U128>,
+    pub min: NearToken,
+    pub max: Option<NearToken>,
 }
 
 pub trait StorageManagement {
@@ -93,13 +93,13 @@ impl StorageManagement for Contract {
         // If the account is already registered, refund the deposit.
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
-            if amount.gt(&NearToken::from_yoctonear(0)) {
+            if amount.gt(&ZERO_TOKEN) {
                 Promise::new(env::predecessor_account_id()).transfer(amount);
             } 
         // Register the account and refund any excess $NEAR
         } else {
             // Get the minimum required storage and ensure the deposit is at least that amount
-            let min_balance = NearToken::from_yoctonear(self.storage_balance_bounds().min.0);
+            let min_balance = self.storage_balance_bounds().min;
             if amount < min_balance {
                 env::panic_str("The attached deposit is less than the minimum storage balance");
             }
@@ -108,13 +108,13 @@ impl StorageManagement for Contract {
             self.internal_register_account(&account_id);
             // Perform a refund
             let refund = amount.saturating_sub(min_balance);
-            if refund.gt(&NearToken::from_yoctonear(0)) {
+            if refund.gt(&ZERO_TOKEN) {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
             }
         }
 
         // Return the storage balance of the account
-        StorageBalance { total: self.storage_balance_bounds().min, available: U128(0) }
+        StorageBalance { total: self.storage_balance_bounds().min, available: ZERO_TOKEN }
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
@@ -124,15 +124,15 @@ impl StorageManagement for Contract {
         
         // Storage balance bounds will have min == max == required_storage_balance
         StorageBalanceBounds {
-            min: U128(required_storage_balance.as_yoctonear()),
-            max: Some(U128(required_storage_balance.as_yoctonear())),
+            min: required_storage_balance,
+            max: Some(required_storage_balance),
         }
     }
 
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
         // Get the storage balance of the account. Available will always be 0 since you can't overpay for storage.
         if self.accounts.contains_key(&account_id) {
-            Some(StorageBalance { total: self.storage_balance_bounds().min, available: U128(0) })
+            Some(StorageBalance { total: self.storage_balance_bounds().min, available: ZERO_TOKEN })
         } else {
             None
         }
