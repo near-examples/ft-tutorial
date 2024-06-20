@@ -9,7 +9,7 @@ trait ExtNftContract {
         &mut self,
         receiver_id: AccountId, // purchaser (person to transfer the NFT to)
         token_id: TokenId, // token ID to transfer
-        approval_id: Option<u64>, // market contract's approval ID in order to transfer the token on behalf of the owner
+        approval_id: Option<u32>, // market contract's approval ID in order to transfer the token on behalf of the owner
         memo: Option<String>, //memo (to include some context)
     );
 }
@@ -21,7 +21,7 @@ trait ExtFtContract {
     fn ft_transfer(
         &mut self,
         receiver_id: AccountId, 
-        amount: U128, 
+        amount: NearToken, 
         memo: Option<String>
     );
 }

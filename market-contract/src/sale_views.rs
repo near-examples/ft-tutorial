@@ -8,7 +8,7 @@ impl Contract {
     pub fn get_supply_sales(
         &self,
     ) -> U64 {
-        //returns the sales object length wrapped as a U64
+        //returns the sales object length
         U64(self.sales.len())
     }
     
@@ -33,7 +33,7 @@ impl Contract {
         &self,
         account_id: AccountId,
         from_index: Option<U128>,
-        limit: Option<u64>,
+        limit: Option<u32>,
     ) -> Vec<Sale> {
         //get the set of token IDs for sale for the given account ID
         let by_owner_id = self.by_owner_id.get(&account_id);
@@ -83,7 +83,7 @@ impl Contract {
         &self,
         nft_contract_id: AccountId,
         from_index: Option<U128>,
-        limit: Option<u64>,
+        limit: Option<u32>,
     ) -> Vec<Sale> {
         //get the set of token IDs for sale for the given contract ID
         let by_nft_contract_id = self.by_nft_contract_id.get(&nft_contract_id);

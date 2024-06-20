@@ -19,7 +19,7 @@ trait NonFungibleTokenApprovalsReceiver {
         &mut self,
         token_id: TokenId,
         owner_id: AccountId,
-        approval_id: u64,
+        approval_id: u32,
         msg: String,
     );
 }
@@ -33,7 +33,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         &mut self,
         token_id: TokenId,
         owner_id: AccountId,
-        approval_id: u64,
+        approval_id: u32,
         msg: String,
     ) {
         // get the contract ID which is the predecessor
@@ -57,18 +57,18 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 
         //we need to enforce that the user has enough storage for 1 EXTRA sale.  
 
-        //get the storage for a sale. dot 0 converts from U128 to u128
-        let storage_amount = self.storage_minimum_balance().0;
+        //get the storage for a sale
+        let storage_amount = self.storage_minimum_balance();
         //get the total storage paid by the owner
-        let owner_paid_storage = self.storage_deposits.get(&signer_id).unwrap_or(0);
+        let owner_paid_storage = self.storage_deposits.get(&signer_id).unwrap_or(ZERO_TOKEN);
         //get the storage required which is simply the storage for the number of sales they have + 1 
-        let signer_storage_required = (self.get_supply_by_owner_id(signer_id).0 + 1) as u128 * storage_amount;
+        let signer_storage_required = storage_amount.saturating_mul(self.get_supply_by_owner_id(signer_id).0 as u128 + 1);
         
         //make sure that the total paid is >= the required storage
         assert!(
             owner_paid_storage >= signer_storage_required,
             "Insufficient storage paid: {}, for {} sales at {} rate of per sale",
-            owner_paid_storage, signer_storage_required / STORAGE_PER_SALE, STORAGE_PER_SALE
+            owner_paid_storage, signer_storage_required.saturating_div(storage_per_sale().as_yoctonear()), storage_per_sale()
         );
 
         //if all these checks pass we can create the sale conditions object.
@@ -101,8 +101,6 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                     //we get a new unique prefix for the collection by hashing the owner
                     account_id_hash: hash_account_id(&owner_id),
                 }
-                .try_to_vec()
-                .unwrap(),
             )
         });
         
@@ -121,8 +119,6 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                         //we get a new unique prefix for the collection by hashing the owner
                         account_id_hash: hash_account_id(&nft_contract_id),
                     }
-                    .try_to_vec()
-                    .unwrap(),
                 )
             });
         

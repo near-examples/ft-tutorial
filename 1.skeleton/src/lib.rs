@@ -1,7 +1,7 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault, StorageUsage};
+use near_sdk::{env, near_bindgen, AccountId, NearToken, PanicOnDefault, StorageUsage, NearSchema};
 
 pub mod ft_core;
 pub mod metadata;
@@ -17,6 +17,7 @@ pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Contract {
     /*
         FILL THIS IN
@@ -25,6 +26,7 @@ pub struct Contract {
 
 /// Helper structure for keys of the persistent collections.
 #[derive(BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     Accounts,
     Metadata

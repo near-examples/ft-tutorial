@@ -1,7 +1,7 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault, StorageUsage};
+use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, NearSchema, NearToken, PanicOnDefault, StorageUsage};
 
 pub mod ft_core;
 pub mod metadata;
@@ -17,13 +17,15 @@ pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Contract {
     /// Metadata for the contract itself
     pub metadata: LazyOption<FungibleTokenMetadata>,
 }
 
 /// Helper structure for keys of the persistent collections.
-#[derive(BorshSerialize)]
+#[derive(BorshSerialize, BorshStorageKey)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     Accounts,
     Metadata
@@ -60,9 +62,9 @@ impl Contract {
         metadata: FungibleTokenMetadata,
     ) -> Self {
         // Create a variable of type Self with all the fields initialized. 
-        let mut this = Self {
+        let this = Self {
             metadata: LazyOption::new(
-                StorageKey::Metadata.try_to_vec().unwrap(),
+                StorageKey::Metadata,
                 Some(&metadata),
             )
         };
