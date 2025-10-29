@@ -1,5 +1,6 @@
 ---
 id: intro
+slug: /
 title: Fungible Tokens Zero to Hero
 sidebar_label: Introduction
 description: "Master NEAR fungible tokens from pre-deployed contracts to building fully-featured FT smart contracts."
