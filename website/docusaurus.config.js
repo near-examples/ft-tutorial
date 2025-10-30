@@ -51,7 +51,7 @@ const config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/near-examples/ft-tutorial/tree/main/website/docs/',
+            'https://github.com/near-examples/ft-tutorial/tree/main/website/',
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -79,7 +79,7 @@ const config = {
             type: 'docSidebar',
             sidebarId: 'tutorialSidebar',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Zero to Hero',
           },
           {href: 'https://docs.near.org', label: 'NEAR Docs', position: 'left'},
           {
