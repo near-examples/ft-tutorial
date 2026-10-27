@@ -5,7 +5,7 @@
 The contracts use NEAR SDK 5.29.1 and the pinned Rust 1.97.1 toolchain. Install [rustup](https://rustup.rs/) and `cargo-near` before building or running the local sandbox integration tests:
 
 ```bash
-cargo install cargo-near --version 0.21.1 --locked
+cargo install cargo-near --version 0.21.1 --locked --no-default-features
 ```
 
 Contract builds and integration-test fixtures compile from source; no live network account is required for tests.

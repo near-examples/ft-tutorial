@@ -15,6 +15,6 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - name: Install contract build tooling
-        run: cargo install cargo-near --version 0.21.1 --locked
+        run: cargo install cargo-near --version 0.21.1 --locked --no-default-features
       - run: cargo test --lib --locked
       - run: cargo near build non-reproducible-wasm --no-abi --no-embed-abi
