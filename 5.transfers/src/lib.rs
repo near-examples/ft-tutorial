@@ -20,9 +20,8 @@ pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
 pub const ZERO_TOKEN: NearToken = NearToken::from_yoctonear(0);
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near_sdk::near(contract_state)]
+#[derive(PanicOnDefault)]
 pub struct Contract {
     /// Keep track of each account's balances
     pub accounts: LookupMap<AccountId, NearToken>,

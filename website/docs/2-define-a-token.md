@@ -186,7 +186,7 @@ In the [next tutorial](3-circulating-supply.md), you'll find out how to create a
 At the time of this writing, this example works with the following versions:
 
 - rustc: `1.77.1`
-- near-sdk-rs: `5.1.0` (with enabled `legacy` feature)
+- near-sdk-rs: `5.29.1` (with enabled `legacy` feature)
 - cargo-near: `0.13.2`
 - near-cli-rs: `0.17.0`
 :::

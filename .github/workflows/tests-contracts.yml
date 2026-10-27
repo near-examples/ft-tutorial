@@ -1,0 +1,20 @@
+name: Contract tests
+on: [push, pull_request]
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        contract: [1.skeleton, 2.define-a-token, 3.initial-supply, 4.storage, 5.transfers, market-contract]
+    defaults:
+      run:
+        working-directory: ${{ matrix.contract }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install contract build tooling
+        run: cargo install cargo-near --version 0.21.1 --locked
+      - run: cargo test --lib --locked
+      - run: cargo near build non-reproducible-wasm --no-abi --no-embed-abi

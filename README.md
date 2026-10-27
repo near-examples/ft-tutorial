@@ -1,5 +1,16 @@
 # Fungible Tokens Zero to Hero
 
+## Rust toolchain
+
+The contracts use NEAR SDK 5.29.1 and the pinned Rust 1.97.1 toolchain. Install [rustup](https://rustup.rs/) and `cargo-near` before building or running the local sandbox integration tests:
+
+```bash
+cargo install cargo-near --version 0.21.1 --locked
+```
+
+Contract builds and integration-test fixtures compile from source; no live network account is required for tests.
+
+
 In this _Zero to Hero_ series, you'll find a set of tutorials covering every aspect of a fungible token (FT) smart contract. You'll start by interacting with a pre-deployed contract and by the end you'll have built a fully-fledged FT smart contract that supports every extension of the standards.
 
 ---

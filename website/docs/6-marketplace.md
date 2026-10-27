@@ -613,7 +613,7 @@ In this tutorial, you learned about the basics of a marketplace contract and how
 At the time of this writing, this example works with the following versions:
 
 - rustc: `1.77.1`
-- near-sdk-rs: `5.1.0` (with enabled `legacy` feature)
+- near-sdk-rs: `5.29.1` (with enabled `legacy` feature)
 - cargo-near: `0.13.2`
 - near-cli: `4.0.13`
 :::
